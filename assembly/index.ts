@@ -6,6 +6,8 @@ import { db, console, TxOutput } from "@vsc.eco/sdk/assembly";
 
 // import { sdk } from '@vsc.eco/sdk'
 
+export * from './btc-relay'
+
 declare namespace System {
   function getEnv(str: String): String;
   function call(str: String): String;

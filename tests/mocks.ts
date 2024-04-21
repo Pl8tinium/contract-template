@@ -1,5 +1,6 @@
 //Crypto imports
 import { ripemd160, sha256 } from "bitcoinjs-lib/src/crypto";
+import { fromString, toString } from 'uint8arrays'
 
 if (!globalThis.beforeEach) {
   await import("mocha").then((Mocha) => {
@@ -93,7 +94,7 @@ export async function reset() {
  */
 const contractCalls = {
   "crypto.sha256": (value) => {
-    return sha256(Buffer.from(value, "hex")).toString("hex");
+    return sha256(fromString(value, "hex")).toString("hex");
   },
   "crypto.ripemd160": (value) => {
     return ripemd160(Buffer.from(value, "hex")).toString("hex");
@@ -187,7 +188,7 @@ const globals = {
         return globals.sdk["system.call"];
       },
     },
-    "system.call": async (callPtr, valPtr) => {
+    "system.call": (callPtr, valPtr) => {
       const callArg = callPtr; //insta.exports.__getString(callPtr);
       const valArg = JSON.parse(valPtr); //insta.exports.__getString(valPtr));
       let resultData;
@@ -203,7 +204,7 @@ const globals = {
 
       return resultData; //insta.exports.__newString(resultData);
     },
-    "system.getEnv": async (envPtr) => {
+    "system.getEnv": (envPtr) => {
       const envArg = envPtr; //insta.exports.__getString(envPtr);
 
       return contractEnv[envArg]; //insta.exports.__newString(contractEnv[envArg]);
