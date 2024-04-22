@@ -175,7 +175,6 @@ export function bytesToUint(uint8Arr: Uint8Array): i64 {
     return total;
 }
 
-// pla: return type probably not right
 // * Target is a 256 bit number encoded as a 3-byte mantissa
 // * and 1 byte exponent
 export function extractTarget(header: Uint8Array): BigInt {
@@ -245,7 +244,6 @@ export function validateHeaderChain(headers: Uint8Array): BigInt {
         // ith header target
         const target = extractTarget(header);
 
-
         // Require that the header has sufficient work
         digest = hash256(header);
         if (!validateHeaderWork(digest, target)) {
@@ -273,22 +271,24 @@ export function isZeroFilled(block: Uint8Array): bool {
     return true;
 }
 
-export function sortPreheadersByTotalDiff(preheaders: Map<string, Header>): Array<Header> {
+export function sortPreheadersByTotalDiff(preheaders: Map<string, Header>): Array<Map<string, Header>> {
     // Convert Map to an Array of values with their keys
-    let entries: Array<Header> = [];
+    let entries: Array<Map<string, Header>> = new Array<Map<string, Header>>();
     let keys = preheaders.keys();
     for (let i = 0, k = keys.length; i < k; ++i) {
-        let key = unchecked(keys[i]); // Access keys with unchecked for performance when bounds are known
+        let key = unchecked(keys[i]);
         let value = preheaders.get(key);
         if (value) {
-            entries.push(value);
+            let entry = new Map<string, Header>();
+            entry.set(key, value);
+            entries.push(entry);
         }
     }
 
-    // Sort the array using a comparator function
-    entries.sort((a: Header, b: Header): i32 => {
-        if (a.totalDiff > b.totalDiff) return 1;
-        if (a.totalDiff < b.totalDiff) return -1;
+    // Sort the array using comparator function
+    entries.sort((a: Map<string, Header>, b: Map<string, Header>): i32 => {
+        if (a.values()[0].totalDiff > b.values()[0].totalDiff) return 1;
+        if (a.values()[0].totalDiff < b.values()[0].totalDiff) return -1;
         return 0;
     });
 
@@ -317,7 +317,6 @@ export function processHeaders(headers: Array<string>): void {
         const headerHash = hash256(decodeHex);
         const diff = validateHeaderChain(decodeHex);
 
-        // Wip
         let prevDiff: BigInt = BigInt.from(0);
         let prevHeight: i32 = 0;
 
@@ -352,9 +351,9 @@ export function processHeaders(headers: Array<string>): void {
         }
     }
 
-    let sortedPreheaders: Array<Header> = sortPreheadersByTotalDiff(preheaders);
+    let sortedPreheaders: Array<Map<string, Header>> = sortPreheadersByTotalDiff(preheaders);
 
-    const topHeader: Header = sortedPreheaders[sortedPreheaders.length - 1];
+    const topHeader: Uint8Array = fromHexString(sortedPreheaders[sortedPreheaders.length - 1].keys()[0]);
 
     let blocksToPush: Array<Header> = [];
     let curDepth: i32 = 0;
@@ -362,27 +361,28 @@ export function processHeaders(headers: Array<string>): void {
 
     while (true) {
         if (!prevBlock) {
-            prevBlock = topHeader.prevBlock;
+            prevBlock = topHeader;
         }
 
-        let currentHeader = preheaders.get(toHexString(prevBlock));
-        if (currentHeader) {
+        let prevBlockStr = toHexString(prevBlock);
+        if (preheaders.has(prevBlockStr)) {
+            let currentHeader = preheaders.get(prevBlockStr);
             if (curDepth > validity_depth) {
                 blocksToPush.push(currentHeader);
             } else {
                 curDepth = curDepth + 1;
             }
+            prevBlock = currentHeader.prevBlock;
         } else {
             break;
         }
-
-        prevBlock = currentHeader.prevBlock;
     }
 
     let highestHeight = 0;
     for (let i = 0, k = blocksToPush.length; i < k; ++i) {
         let block = blocksToPush[i];
         let key = calcKey(block.height);
+
         //Get headers in memory if not available
         if (!headersState.has(key)) {
             const parsed = <JSON.Obj>JSON.parse(db.getObject(`headers/${key}`));
@@ -410,22 +410,34 @@ export function processHeaders(headers: Array<string>): void {
     let preHeaderKeys = preheaders.keys();
     for (let i = 0, k = preHeaderKeys.length; i < k; ++i) {
         let key = unchecked(preHeaderKeys[i]);
-        let value = preheaders.get(key);
-        if (value && highestHeight >= value.height) {
-            preheaders.delete(unchecked(key));
+        if (headersState.has(key)) {
+            let value = preheaders.get(key);
+            if (highestHeight >= value.height) {
+                preheaders.delete(unchecked(key));
+            }
         }
     }
 
     let headerStateKeys = headersState.keys();
     for (let i = 0, k = headerStateKeys.length; i < k; ++i) {
         let key = unchecked(headerStateKeys[i]);
-        let val = headersState.get(key);
-        if (val) {
+        if (headersState.has(key)) {
+            let val = headersState.get(key);
             const serializedHeaderState = serializeHeaderState(val);
             db.setObject(`headers/${key}`, serializedHeaderState);
         }
     }
 
+    // pla: TMP - LOG ALL PREHEADERS
+    // for (let i = 0, k = preheaders.keys().length; i < k; ++i) {
+    //     let key = unchecked(preHeaderKeys[i]);
+    //     if (preheaders.has(key)) {
+    //         let val = preheaders.get(key);
+    //         console.log("preheader "+ key + " "+ val.stringify())
+    //     }
+    // }
+    // TMP
+    
     db.setObject(`pre-headers/main`, serializePreHeaders(preheaders));
 }
 
