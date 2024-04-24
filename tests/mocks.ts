@@ -168,7 +168,7 @@ const globals = {
     },
     "db.getObject": (keyPtr) => {
       const key = keyPtr; //(insta as any).exports.__getString(keyPtr);
-      const value = stateCache.get(key);
+      const value = stateCache.get(key) || "null";
 
       const val = value;
 

@@ -107,23 +107,26 @@ function getIntFromJSON(jsonObject: JSON.Obj, key: string): i64 {
 }
 
 export function getPreheaders(): Map<string, Header> {
-    let parsed = <JSON.Obj>JSON.parse(db.getObject(`pre-headers/main`));
+    const fetchedPreHeaders = db.getObject(`pre-headers/main`);
     const preheaders: Map<string, Header> = new Map<string, Header>();
 
-    for (let i = 0; i < parsed.keys.length; ++i) {
-        let key = parsed.keys[i];
-        let obj = parsed.get(key);
-        if (obj instanceof JSON.Obj) {
-            let preheader = new Header(
-                fromHexString(getStringFromJSON(<JSON.Obj>obj, "prevBlock")),
-                getStringFromJSON(<JSON.Obj>obj, "timestamp"),
-                fromHexString(getStringFromJSON(<JSON.Obj>obj, "merkleRoot")),
-                BigInt.from(getStringFromJSON(<JSON.Obj>obj, "diff")),
-                BigInt.from(getStringFromJSON(<JSON.Obj>obj, "totalDiff")),
-                getIntFromJSON(<JSON.Obj>obj, "height") as i32,
-                getStringFromJSON(<JSON.Obj>obj, "raw")
-            );
-            preheaders.set(key, preheader);
+    if (fetchedPreHeaders !== "null") {
+        let parsed = <JSON.Obj>JSON.parse(fetchedPreHeaders);
+        for (let i = 0; i < parsed.keys.length; ++i) {
+            let key = parsed.keys[i];
+            let obj = parsed.get(key);
+            if (obj instanceof JSON.Obj) {
+                let preheader = new Header(
+                    fromHexString(getStringFromJSON(<JSON.Obj>obj, "prevBlock")),
+                    getStringFromJSON(<JSON.Obj>obj, "timestamp"),
+                    fromHexString(getStringFromJSON(<JSON.Obj>obj, "merkleRoot")),
+                    BigInt.from(getStringFromJSON(<JSON.Obj>obj, "diff")),
+                    BigInt.from(getStringFromJSON(<JSON.Obj>obj, "totalDiff")),
+                    getIntFromJSON(<JSON.Obj>obj, "height") as i32,
+                    getStringFromJSON(<JSON.Obj>obj, "raw")
+                );
+                preheaders.set(key, preheader);
+            }
         }
     }
 
@@ -385,13 +388,16 @@ export function processHeaders(headers: Array<string>): void {
 
         //Get headers in memory if not available
         if (!headersState.has(key)) {
-            const parsed = <JSON.Obj>JSON.parse(db.getObject(`headers/${key}`));
-            const pulledHeaders: Map<i64, string> | null = new Map<i64, string>();
-            for (let i = 0; i < parsed.keys.length; ++i) {
-                let key = parsed.keys[i];
-                let blockRaw = getStringFromJSON(<JSON.Obj>parsed, key);
-                let height = parseInt(key) as i64;
-                pulledHeaders.set(height, blockRaw);
+            const pulledHeaders: Map<i64, string> = new Map<i64, string>();
+            const fetchedHeaderState = db.getObject(`headers/${key}`);
+            if (fetchedHeaderState !== "null") {
+                const parsed = <JSON.Obj>JSON.parse(fetchedHeaderState);
+                for (let i = 0; i < parsed.keys.length; ++i) {
+                    let key = parsed.keys[i];
+                    let blockRaw = getStringFromJSON(<JSON.Obj>parsed, key);
+                    let height = parseInt(key) as i64;
+                    pulledHeaders.set(height, blockRaw);
+                }
             }
             headersState.set(key, pulledHeaders);
         }
@@ -429,15 +435,15 @@ export function processHeaders(headers: Array<string>): void {
     }
 
     // pla: TMP - LOG ALL PREHEADERS
-    // for (let i = 0, k = preheaders.keys().length; i < k; ++i) {
-    //     let key = unchecked(preHeaderKeys[i]);
-    //     if (preheaders.has(key)) {
-    //         let val = preheaders.get(key);
-    //         console.log("preheader "+ key + " "+ val.stringify())
-    //     }
-    // }
+    for (let i = 0, k = preheaders.keys().length; i < k; ++i) {
+        let key = unchecked(preHeaderKeys[i]);
+        if (preheaders.has(key)) {
+            let val = preheaders.get(key);
+            console.log("preheader "+ key + " "+ val.stringify())
+        }
+    }
     // TMP
-    
+
     db.setObject(`pre-headers/main`, serializePreHeaders(preheaders));
 }
 
