@@ -37,9 +37,8 @@ class Header {
         this.raw = raw;
     }
 
-    stringify(): string {
-        let encoder = new JSONEncoder();
-        encoder.pushObject(null);
+    stringify(encoder: JSONEncoder, key: string | null = null): JSONEncoder {
+        encoder.pushObject(key);
         encoder.setString("prevBlock", toHexString(this.prevBlock));
         encoder.setString("timestamp", this.timestamp);
         encoder.setString("merkleRoot", toHexString(this.merkleRoot));
@@ -47,8 +46,7 @@ class Header {
         encoder.setString("totalDiff", this.totalDiff.toString());
         encoder.setInteger("height", this.height);
         encoder.setString("raw", this.raw);
-        encoder.popObject();
-        return encoder.toString();
+        return encoder;
     }
 }
 
@@ -425,6 +423,7 @@ export function processHeaders(headers: Array<string>): void {
     }
 
     let headerStateKeys = headersState.keys();
+    console.log(headerStateKeys.length.toString())
     for (let i = 0, k = headerStateKeys.length; i < k; ++i) {
         let key = unchecked(headerStateKeys[i]);
         if (headersState.has(key)) {
@@ -435,13 +434,19 @@ export function processHeaders(headers: Array<string>): void {
     }
 
     // pla: TMP - LOG ALL PREHEADERS
+    let encoder = new JSONEncoder();
     for (let i = 0, k = preheaders.keys().length; i < k; ++i) {
         let key = unchecked(preHeaderKeys[i]);
         if (preheaders.has(key)) {
             let val = preheaders.get(key);
-            console.log("preheader "+ key + " "+ val.stringify())
+            if (val !== null) {
+                val.stringify(encoder, key);
+                encoder.popObject();
+            }
         }
     }
+    encoder.popObject();
+    // console.log(encoder.toString())
     // TMP
 
     db.setObject(`pre-headers/main`, serializePreHeaders(preheaders));
@@ -456,7 +461,8 @@ function serializePreHeaders(preheaders: Map<string, Header>): string {
         let key = unchecked(keys[i]);
         let value = preheaders.get(key);
         if (value !== null) {
-            encoder.setString(key, value.stringify());
+            value.stringify(encoder, key);
+            encoder.popObject();
         }
     }
     encoder.popObject();
