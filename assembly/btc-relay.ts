@@ -324,13 +324,19 @@ export function processHeaders(headers: Array<string>): void {
         const prevBlockStr = toHexString(prevBlock)
         let continueLoop: bool = true;
 
+        // DEBUG
         if (prevBlockStr === '0000000000000000000000000000000000000000000000000000000000000000') {
             prevHeight = -1;
         } else {
-            let blockInfo = preheaders.get(prevBlockStr);
-            if (blockInfo) {
-                prevDiff = blockInfo.totalDiff;
-                prevHeight = blockInfo.height as i32;
+            if (preheaders.has(prevBlockStr)) {
+                let blockInfo = preheaders.get(prevBlockStr);
+                if (blockInfo) {
+                    prevDiff = blockInfo.totalDiff;
+                    prevHeight = blockInfo.height as i32;
+                } else {
+                    // pla: because assemblyscript doesnt support 'continue;'
+                    continueLoop = false;
+                }
             } else {
                 // pla: because assemblyscript doesnt support 'continue;'
                 continueLoop = false;
@@ -351,7 +357,6 @@ export function processHeaders(headers: Array<string>): void {
             preheaders.set(toHexString(reverseEndianness(headerHash)), decodedHeader);
         }
     }
-
     let sortedPreheaders: Array<Map<string, Header>> = sortPreheadersByTotalDiff(preheaders);
 
     const topHeader: Uint8Array = fromHexString(sortedPreheaders[sortedPreheaders.length - 1].keys()[0]);
@@ -368,9 +373,11 @@ export function processHeaders(headers: Array<string>): void {
         let prevBlockStr = toHexString(prevBlock);
         if (preheaders.has(prevBlockStr)) {
             let currentHeader = preheaders.get(prevBlockStr);
+
+            // pla: skipping first x blocks below validity_depth
             if (curDepth > validity_depth) {
                 blocksToPush.push(currentHeader);
-            } else {
+            } else {                
                 curDepth = curDepth + 1;
             }
             prevBlock = currentHeader.prevBlock;
@@ -423,7 +430,6 @@ export function processHeaders(headers: Array<string>): void {
     }
 
     let headerStateKeys = headersState.keys();
-    console.log(headerStateKeys.length.toString())
     for (let i = 0, k = headerStateKeys.length; i < k; ++i) {
         let key = unchecked(headerStateKeys[i]);
         if (headersState.has(key)) {
@@ -434,18 +440,18 @@ export function processHeaders(headers: Array<string>): void {
     }
 
     // pla: TMP - LOG ALL PREHEADERS
-    let encoder = new JSONEncoder();
-    for (let i = 0, k = preheaders.keys().length; i < k; ++i) {
-        let key = unchecked(preHeaderKeys[i]);
-        if (preheaders.has(key)) {
-            let val = preheaders.get(key);
-            if (val !== null) {
-                val.stringify(encoder, key);
-                encoder.popObject();
-            }
-        }
-    }
-    encoder.popObject();
+    // let encoder = new JSONEncoder();
+    // for (let i = 0, k = preheaders.keys().length; i < k; ++i) {
+    //     let key = unchecked(preHeaderKeys[i]);
+    //     if (preheaders.has(key)) {
+    //         let val = preheaders.get(key);
+    //         if (val !== null) {
+    //             val.stringify(encoder, key);
+    //             encoder.popObject();
+    //         }
+    //     }
+    // }
+    // encoder.popObject();
     // console.log(encoder.toString())
     // TMP
 

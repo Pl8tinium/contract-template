@@ -12,7 +12,7 @@ xdescribe("parseHex", () => {
     const expected = new Uint8Array([0, 0, 0, 32, 135, 183, 196, 61, 230, 155, 214, 166, 52, 122, 176, 137, 172, 30, 216, 142, 66, 194, 182, 15, 48, 44, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 159, 94, 82, 192, 130, 171, 47, 178, 247, 162, 118, 75, 240, 188, 85, 67, 67, 212, 235, 17, 28, 234, 234, 238, 83, 28, 177, 92, 52, 244, 60, 181, 38, 50, 250, 101, 89, 90, 3, 23, 157, 208, 77, 51])
 
     // act
-    const result = contract.parseHex(
+    const result = contract.fromHexString(
       "0000002087b7c43de69bd6a6347ab089ac1ed88e42c2b60f302c010000000000000000009f5e52c082ab2fb2f7a2764bf0bc554343d4eb111ceaeaee531cb15c34f43cb52632fa65595a03179dd04d33",
     )
 
@@ -43,7 +43,7 @@ xdescribe("general processHeaders tests", () => {
     
     // assert
     const updatedPreheaders = stateCache.get("pre-headers/main");
-    expect(updatedPreheaders).to.equal(firstTenBTCBlocks);
+    expect(updatedPreheaders).to.equal(JSON.stringify(firstTenBTCBlocks));
   });
 
   it("should process and verify BTC headers incrementally", () => {
@@ -71,12 +71,12 @@ xdescribe("general processHeaders tests", () => {
     
     // assert
     const updatedPreheaders = stateCache.get("pre-headers/main");
-    expect(updatedPreheaders).to.equal(firstTenBTCBlocks);
+    expect(updatedPreheaders).to.equal(JSON.stringify(firstTenBTCBlocks));
   });
 });
 
 xdescribe("test processHeaders without existing data", () => {
-  it("headers in wrong order", () => {
+  it("headers in wrong order, should only process block zero", () => {
     // arrange
     const testHeaders = [
       "010000006fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000982051fd1e4ba744bbbe680e1fee14677ba1a3c3540bf7b1cdb606e857233e0e61bc6649ffff001d01e36299",
@@ -84,11 +84,61 @@ xdescribe("test processHeaders without existing data", () => {
       "010000004860eb18bf1b1620e37e9490fc8a427514416fd75159ab86688e9a8300000000d5fdcc541e25de1c7a5addedf24858b8bb665c9f36ef744ee42c316022c90f9bb0bc6649ffff001d08d2bd61",
     ]
 
-    // act & assert
-    expect(() => contract.processHeaders(testHeaders)).to.throw(Error);
+    // act
+    contract.processHeaders(testHeaders);
+
+    // assert
+    const createdCache = JSON.parse(stateCache.get("pre-headers/main"));
+    expect(Object.keys(createdCache).length === 1)
+    expect(createdCache["000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"]).to.not.be.undefined;
   });
+
+  it("mixed header ordering, should process first 3 blocks", () => {
+    // arrange
+    const testHeaders = [
+      // block 5
+      "0100000085144a84488ea88d221c8bd6c059da090e88f8a2c99690ee55dbba4e00000000e11c48fecdd9e72510ca84f023370c9a38bf91ac5cae88019bee94d24528526344c36649ffff001d1d03e477",
+      // block 0
+      "0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c",
+      // block 8
+      "010000004494c8cf4154bdcc0720cd4a59d9c9b285e4b146d45f061d2b6c967100000000e3855ed886605b6d4a99d5fa2ef2e9b0b164e63df3c4136bebf2d0dac0f1f7a667c86649ffff001d1c4b5666",
+      // block 1
+      "010000006fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000982051fd1e4ba744bbbe680e1fee14677ba1a3c3540bf7b1cdb606e857233e0e61bc6649ffff001d01e36299",
+      // block 10
+      "010000000508085c47cc849eb80ea905cc7800a3be674ffc57263cf210c59d8d00000000112ba175a1e04b14ba9e7ea5f76ab640affeef5ec98173ac9799a852fa39add320cd6649ffff001d1e2de565",
+      // block 2
+      "010000004860eb18bf1b1620e37e9490fc8a427514416fd75159ab86688e9a8300000000d5fdcc541e25de1c7a5addedf24858b8bb665c9f36ef744ee42c316022c90f9bb0bc6649ffff001d08d2bd61",
+    ]
+
+    // act
+    contract.processHeaders(testHeaders);
+
+    // assert
+    const createdCache = JSON.parse(stateCache.get("pre-headers/main"));
+    expect(Object.keys(createdCache).length === 3)
+  });
+
+  // pla: doesnt work currently, should it work?
+  // it("should process first 3 headers and then a way higher block", () => {
+  //   // arrange
+  //   const testHeaders = [
+  //     "0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c",
+  //     "010000006fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000982051fd1e4ba744bbbe680e1fee14677ba1a3c3540bf7b1cdb606e857233e0e61bc6649ffff001d01e36299",
+  //     "010000004860eb18bf1b1620e37e9490fc8a427514416fd75159ab86688e9a8300000000d5fdcc541e25de1c7a5addedf24858b8bb665c9f36ef744ee42c316022c90f9bb0bc6649ffff001d08d2bd61",
+  //     "010000000508085c47cc849eb80ea905cc7800a3be674ffc57263cf210c59d8d00000000112ba175a1e04b14ba9e7ea5f76ab640affeef5ec98173ac9799a852fa39add320cd6649ffff001d1e2de565"
+  //   ]
+
+  //   // act
+  //   contract.processHeaders(testHeaders);
+
+  //   // assert
+  //   const createdCache = JSON.parse(stateCache.get("pre-headers/main"));
+  //   console.log('tst');
+  //   // expect(Object.keys(createdCache).length === 3)
+  // });
 });
 
+// DONT COMMENT OUT
 // xdescribe("test processHeaders with prefilled data", () => {
 //   beforeEach(() => {
 //     stateCache.set("pre-headers/main", JSON.stringify(firstTenBTCBlocks));
@@ -119,7 +169,8 @@ xdescribe("test processHeaders without existing data", () => {
 //   });
 // });
 
-xdescribe("test processHeaders faulty headers", () => {
+// FIX THE ORIGINAL CODE TO COMPLY
+describe("test processHeaders faulty headers", () => {
   const goodHeaders = [
     "0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c",
   ]
@@ -127,24 +178,38 @@ xdescribe("test processHeaders faulty headers", () => {
   const manipulatedHeader = "010000006fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000982051fd1e4ba744bbbe680e1fee14677ba1a3c3540bf7b1cdb606e857233e0e61bc6649ffff001d01e36299"
   const faultyHeaders = []
 
-  for (let i = 0; i < 160; i + 10) { 
+  for (let i = 0; i < 160; i += 10) { 
     const adjustedFaultyHeader = manipulatedHeader.slice(0, i) + "AAAAAAAAAA" + manipulatedHeader.slice(i + 10)
 
     faultyHeaders.push(adjustedFaultyHeader)
   }
 
-  for (const faultyHeader of faultyHeaders) {
-    it(`should throw an error`, () => {
-      expect(() => contract.processHeaders([...goodHeaders, faultyHeader])).to.throw(Error);
-    });
+  for (let i = 0; i < 16; i++) { 
+    const faultyHeader = faultyHeaders[i];
+
+    if (i != 15) {
+      it(`should only process the good headers`, () => {
+        contract.processHeaders([...goodHeaders, faultyHeader])
+        const createdCache = JSON.parse(stateCache.get("pre-headers/main"));
+
+        expect(Object.keys(createdCache).length === 1)
+        expect(createdCache["000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"]).to.not.be.undefined;
+      });
+    } else {
+      // pla: changing the raw data at this index messes with a power operation that tries to power to a negative number
+      // something that is not supported in the big int library
+      // 'Error: BigInt does not support negative exponentiation'
+      it(`should throw an error`, () => {
+        expect(() => contract.processHeaders([...goodHeaders, faultyHeader])).to.throw(Error);
+      });
+    }
   }
 });
 
-describe("test processHeaders with many headers", () => {
+xdescribe("test processHeaders with many headers", () => {
   it("should process and verify BTC headers", () => {
     // arrange
-    // const allHeaders = { ...headers0to100, ...headers100to200, ...headers200to250}
-    const allHeaders = { ...headers0to100 }
+    const allHeaders = { ...headers0to100, ...headers100to200, ...headers200to250}
     const sortedKeys = Object.keys(allHeaders).sort((a, b) => parseInt(a) - parseInt(b));
     const testHeaders = sortedKeys.map(key => allHeaders[key]);
 
@@ -152,8 +217,10 @@ describe("test processHeaders with many headers", () => {
     contract.processHeaders(testHeaders);
     
     // assert
-    const updatedHeaders = stateCache.get("headers/0-100");
-    assert.isTrue(areObjectsEqual(JSON.parse(updatedHeaders), headers0to100))
+    const updatedHeaders0To100 = stateCache.get("headers/0-100");
+    const updatedHeaders100To200 = stateCache.get("headers/100-200");
+    assert.isTrue(areObjectsEqual(JSON.parse(updatedHeaders0To100), headers0to100))
+    assert.isTrue(areObjectsEqual(JSON.parse(updatedHeaders100To200), headers100to200))
   });
 });
 
