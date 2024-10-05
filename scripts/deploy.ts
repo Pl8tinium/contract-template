@@ -17,6 +17,7 @@ import * as mktemp from "mktemp";
 import { encodePayload } from "dag-jose-utils";
 import { bech32 } from "bech32";
 import { fetch } from "cross-fetch";
+import * as path from "path";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
