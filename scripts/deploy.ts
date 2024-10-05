@@ -283,12 +283,16 @@ async function compileAS(args: { scriptPath: string }): Promise<CompileResult> {
     {
       stdout: stdout,
       readFile: async (filename: string, baseDir: string) => {
-        // console.log(filename, baseDir)
         try {
+          let fullPath;
+
           if (filename === "input.ts") {
-            return (await fs.readFile(scriptPath)).toString();
+            fullPath = scriptPath;
+          } else {
+            fullPath = path.resolve(path.dirname(scriptPath), filename);
           }
-          return (await fs.readFile(filename)).toString();
+
+          return (await fs.readFile(fullPath)).toString();
         } catch {
           return null;
         }
